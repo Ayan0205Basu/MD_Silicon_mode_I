@@ -1,0 +1,1 @@
+Uploaded all necessary input files for the MD simulation. Exclude silicon.data due to GitHub file size limits. Provide a Google Drive link for downloading the data file, with instructions to place it in the mode_I_done directory for replication.
