@@ -1,0 +1,173 @@
+# 3D Silicon Mode-I Crack Simulation using Stillinger-Weber
+# Reads atom configuration from silicon.data file
+# All atom types (1-5) already assigned in data file
+# Crack geometry pre-defined through atom types 2 and 3
+
+variable name string mode_1
+
+# ============================================================================
+# SIMULATION SETUP
+# ============================================================================
+
+dimension       3
+boundary        s s p
+units           metal
+atom_style      atomic
+neighbor        0.3 bin
+neigh_modify    delay 5
+
+# ============================================================================
+# READ ATOM DATA FILE
+# ============================================================================
+# The data file contains:
+# - All atoms with positions already set
+# - Atom types pre-assigned:
+#   Type 1: Interior bulk atoms
+#   Type 2: Upper crack surface atoms
+#   Type 3: Lower crack surface atoms
+#   Type 4: Lower boundary grip atoms
+#   Type 5: Upper boundary grip atoms
+
+read_data       silicon.data
+
+# ============================================================================
+# POTENTIAL SETUP
+# ============================================================================
+
+pair_style      sw
+pair_coeff      * * Si.sw Si Si Si Si Si
+
+# ============================================================================
+# REMOVE INTERACTIONS ACROSS CRACK
+# ============================================================================
+# Type 2 and 3 interactions are already defined by the data file geometry
+# Remove pair interactions between crack faces to create the physical crack
+
+
+
+# ============================================================================
+# INITIAL EQUILIBRATION (NVT)
+# ============================================================================
+
+print "============ EQUILIBRATION PHASE ============"
+print "Reading from: silicon.data"
+print "Atom types already assigned (1=bulk, 2=upper_crack, 3=lower_crack, 4=lower_grip, 5=upper_grip)"
+
+# Define groups based on atom types
+group           bulk type 1
+group           crack_upper type 2
+group           crack_lower type 3
+group           lower type 4
+group           upper type 5
+group           boundary union lower upper
+group           mobile subtract all boundary
+
+neigh_modify    exclude type 2 3
+
+# Set up mass (already done by read_data, but ensure correct)
+mass            1 28.06
+mass            2 28.06
+mass            3 28.06
+mass            4 28.06
+mass            5 28.06
+
+# Equilibrate at 1 K
+fix             eq all nvt temp 1 1 0.1
+thermo          100
+thermo_style    custom step temp pe ke etotal vol press
+run             5000
+
+print "============ EQUILIBRATION COMPLETE ============"
+
+# Reset timestep counter to 0 for deformation phase
+reset_timestep  0
+
+# ============================================================================
+# PREPARE FOR DEFORMATION
+# ============================================================================
+
+unfix           eq
+
+# Compute temperature for mobile atoms only
+compute         temp_mobile mobile temp
+velocity        mobile create 0 218552 temp temp_mobile
+
+# Set boundary velocities for Mode-I loading (vertical tension)
+velocity        upper set 0.0 0.2715 0.0
+velocity        lower set 0.0 -0.2715 0.0
+
+# ============================================================================
+# COMPUTE STRESS AND STRAIN METRICS
+# ============================================================================
+
+# Per-atom stress tensor (virial)
+compute         stress_atom all stress/atom NULL
+
+# Global stress components (sum over all atoms)
+compute         stress_xx all reduce sum c_stress_atom[1]
+compute         stress_yy all reduce sum c_stress_atom[2]
+compute         stress_zz all reduce sum c_stress_atom[3]
+compute         stress_xy all reduce sum c_stress_atom[4]
+compute         stress_xz all reduce sum c_stress_atom[5]
+compute         stress_yz all reduce sum c_stress_atom[6]
+
+# Voronoi volume for stress normalization
+compute         vvol all voronoi/atom
+
+# Box dimensions for strain calculation
+variable        ly_initial equal ly
+variable        strain equal (ly-${ly_initial})/${ly_initial}
+
+# Average stresses (divide by volume*10000 for proper stress units - GPa)
+variable        sigma_xx equal c_stress_xx/(vol*10000)
+variable        sigma_yy equal c_stress_yy/(vol*10000)
+variable        sigma_zz equal c_stress_zz/(vol*10000)
+variable        sigma_xy equal c_stress_xy/(vol*10000)
+variable        sigma_xz equal c_stress_xz/(vol*10000)
+variable        sigma_yz equal c_stress_yz/(vol*10000)
+
+# ============================================================================
+# SETUP FIXES FOR DEFORMATION
+# ============================================================================
+
+# Use NVE for constant volume deformation
+fix             deform all nve
+
+# Constrain boundary atoms to move only in Y (prevent XZ drift)
+fix             grip_bc boundary setforce NULL 0.0 NULL
+
+# ============================================================================
+# OUTPUT AND DIAGNOSTICS
+# ============================================================================
+
+# Thermo output with strain and stress components
+thermo          500
+thermo_style    custom step time temp etotal pe ke vol &
+                v_strain v_sigma_xx v_sigma_yy v_sigma_zz v_sigma_xy
+
+# Dump file: per-atom data for post-processing
+dump            1 all custom 2500 dump.${name}.* &
+                id type x y z vy c_stress_atom[2] c_vvol[1]
+
+# Print detailed stress data to file
+fix             print_stress all print 100 &
+                "${tstp} ${strain} ${sigma_xx} ${sigma_yy} ${sigma_zz} ${sigma_xy} ${sigma_xz} ${sigma_yz}" &
+                file stress_strain_data.txt screen no
+
+variable        tstp equal step
+variable        strain equal (ly-${ly_initial})/${ly_initial}
+
+# ============================================================================
+# RUN DEFORMATION
+# ============================================================================
+
+print "============ DEFORMATION PHASE (MODE-I TENSILE OPENING) ============"
+print "Atom configuration read from silicon.data"
+print "Crack surfaces already defined by types 2 and 3"
+print "Boundary grips already defined by types 4 and 5"
+
+timestep        0.001
+run             500000
+
+print "============ SIMULATION COMPLETE ============"
+print "Calculation avoided pre-defined geometry from silicon.data file"
