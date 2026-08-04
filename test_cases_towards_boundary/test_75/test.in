@@ -1,0 +1,134 @@
+# 3D Silicon crack simulation using Stillinger-Weber 
+
+
+
+variable name string tstp
+
+
+
+dimension  	3
+boundary 	s s p
+units 		metal
+atom_style 	atomic
+neighbor 	0.3 bin
+neigh_modify 	delay 5
+
+
+# create geometry
+
+lattice  diamond 5.43
+region  box block 0 400 0 1000 0 1 units lattice
+create_box 9 box
+create_atoms 1 box
+
+#masses of different atom sections
+mass  1 28.06
+mass  2 28.06
+mass  3 28.06
+mass  4 28.06
+mass  5 28.06
+mass  6 28.06
+mass  7 28.06
+mass  8 28.06
+mass  9 28.06
+
+
+# potential setup
+pair_style sw
+pair_coeff * * Si.sw Si Si Si Si Si Si Si Si Si
+
+
+
+# define groups
+
+#fix  1 all nvt temp 1 1 0.1
+fix  1 all nve
+run 0
+
+variable topbound equal yhi-2
+variable botbound equal ylo+2
+variable toplayer equal yhi-4.715
+variable botlayer equal ylo+4.715
+
+#lower layer of atoms
+region     1 block INF INF INF ${botbound} INF INF units box
+region	   blayer block INF INF ${botbound} ${botlayer} INF INF units box
+group  lower region 1
+
+#upper layer of atoms
+region  2 block INF INF ${topbound} INF INF INF units box
+region  tlayer block INF INF ${toplayer} ${topbound} INF INF units box
+group  upper region 2
+
+#rest of the regions
+group  boundary union lower upper
+group  mobile subtract all boundary
+
+
+# set crack position and length
+variable left_end equal xhi/3 # left end crack tip
+variable right_end equal xhi/1.5 # right end crack tip
+variable crack_pos_x equal 30*yhi/40 # crack position
+variable layer_1 equal (30*yhi/40)+(8.145)/2
+variable layer_2 equal (30*yhi/40)-(8.145)/2
+variable layer_3 equal (30*yhi/40)+(8.145)/2
+variable layer_4 equal (30*yhi/40)-(8.145)/2 
+
+
+region  leftupper block ${left_end} ${right_end} ${crack_pos_x} ${layer_1} INF INF units box
+region  leftlower block ${left_end} ${right_end} ${layer_2} ${crack_pos_x} INF INF units box
+region  seclower block ${right_end} INF ${layer_4} ${crack_pos_x} INF INF units box
+region  secupper block ${right_end} INF ${crack_pos_x} ${layer_3} INF INF units box
+
+group  leftupper region leftupper
+group  leftlower region leftlower
+group  seclower region seclower
+group  secupper region secupper
+group  blayer region blayer
+group  tlayer region tlayer
+group  study union seclower secupper
+group  layer union blayer tlayer
+# setup for different groups
+set  group leftupper type 2
+set  group leftlower type 3
+set  group lower type 4
+set  group upper type 5
+set  group secupper type 6
+set  group seclower type 7
+set  group tlayer type 8
+set  group blayer type 9
+
+
+
+# initial velocities
+compute    	new mobile temp
+velocity 	mobile create 0.1 218552 temp new
+velocity 	upper set 0.0 0.5 0.0
+velocity 	lower set 0.0 0.000 0.0
+
+# Cmpute virial stresses
+compute stress all stress/atom NULL
+compute summ all reduce sum c_stress[1] c_stress[2] c_stress[3]
+compute vvol all voronoi/atom
+
+# fixes
+
+fix  2 boundary setforce NULL 0.0 NULL 
+
+#set variables for output
+variable	le equal ly
+variable	tstp equal step
+variable	virial equal c_summ[2]
+#dump 	1 all custom 200 dump.${name}.* id type x y z vy c_stress[2] c_vvol[1]
+dump 	22 study custom 200 dump_study.${name}.* id type x y z vy c_stress[2] c_vvol[1]
+dump 	33 layer custom 200 dump_layer.${name}.* id type x y z vy c_stress[2] c_vvol[1]
+fix 	print all print 50 "${tstp} ${le} ${virial}" file virial_stress_data.txt screen yes
+
+
+# run
+
+timestep 	0.005
+thermo  	200
+thermo_modify 	temp new
+neigh_modify 	exclude type 2 3
+run  		15000

@@ -1,0 +1,150 @@
+# 3D Silicon crack simulation using Stillinger-Weber 
+
+#--------------------------------------------- STRING SETUP FOR OUTPUT--------------------------------------------
+
+variable name string data
+variable std  string study
+variable bdr  string boundary
+
+
+#---------------------------------------------- ENVOURMENT SETUP---------------------------------------------------
+
+dimension  	3
+boundary 	s s p
+units 		metal
+atom_style 	atomic
+neighbor 	0.3 bin
+neigh_modify 	delay 5
+
+#-------------------------------------------------------GEOMETRY---------------------------------------------------
+
+
+
+lattice		diamond 5.43
+region		box block 0 400 0 1000 0 1 units lattice
+create_box 	9 box
+create_atoms 	1 box
+
+
+mass  		1 28.0855
+mass  		2 28.0855
+mass  		3 28.0855
+mass  		4 28.0855
+mass  		5 28.0855
+mass  		6 28.0855
+mass  		7 28.0855
+mass  		8 28.0855
+mass  		9 28.0855
+#----------------------------------------------POTENTIAL----------------------------------------
+
+pair_style 	sw
+pair_coeff 	* * Si.sw Si Si Si Si Si Si Si Si Si
+
+#--------------------------------------------GROUPS AND REGIONS------------------------------------
+
+fix  		1 all nve
+run 		0
+
+#______________________________
+
+variable 	topbound equal yhi-2
+variable 	botbound equal ylo+2
+
+#______________________________
+
+region 		1 block INF INF INF ${botbound} INF INF units box
+group  		lower region 1
+
+region 		2 block INF INF ${topbound} INF INF INF units box
+group  		upper region 2
+
+group  		boundary union lower upper
+group  		mobile subtract all boundary
+
+#__________________________________
+
+variable 	xbh equal xhi
+variable 	xbl equal xhi-5.43
+variable	right equal 2*xhi/3
+variable 	left equal xhi/3
+variable 	half equal 19*yhi/20
+variable	uhalf equal (19*yhi/20)+(8.145/2)
+variable	lhalf equal (19*yhi/20)-(8.145/2)
+#____________________________________
+
+region  	leftupper block ${left} ${right} ${half} ${uhalf} INF INF units box
+region  	leftlower block ${left} ${right} ${lhalf} ${half} INF INF units box
+region  	study block ${right} INF 5158 5159 INF INF units box
+region  	studyup block ${right} INF 5159 5160.5 INF INF units box
+region  	studydn block ${right} INF 5156.5 5158 INF INF units box
+region		bound block ${xbl} ${xbh} 5156.5 5160.5 INF INF units box
+ 
+group   	leftupper region leftupper
+group   	leftlower region leftlower
+group   	study region study
+group   	studyup region studyup
+group   	studydn region studydn
+group		bound region bound
+
+#_____________________________
+
+set  		group leftupper type 2
+set  		group leftlower type 3
+set  		group lower type 4
+set  		group upper type 5
+set  		group study type 6
+set  		group studyup type 7
+set  		group studydn type 8
+
+
+
+#-----------------------------------------INITIAL COMPUTATION------------------------------
+reset_timestep 0
+variable 	tmpx equal "lx"
+variable 	L0 equal ${tmpx}
+variable 	tmpy equal "ly"
+variable 	L1 equal ${tmpy}
+
+# --------------------------------------INITAIL VELOCITY APPLICATION----------------------
+
+compute    	new mobile temp
+velocity 	mobile create 0 887723 temp new
+
+velocity 	upper set 0.0 0.50 0.0
+velocity 	lower set 0.0 0.0 0.0
+
+#--------------------------------------FINAL COMPUTATION----------------------------------
+
+# for units metal, pressure is in [bars] = 100 [kPa] = 1/10000 [GPa]
+# for units real, pressure is in [atm] = 101.325 [kPa] = 1.01325/10000 [GPa]
+
+variable 	strain equal "(ly - v_L1)/v_L1"
+variable	virial equal c_summ[2]
+variable	le equal ly
+variable	tstp equal step
+
+
+
+compute 	stress all stress/atom NULL
+compute summ all reduce sum c_stress[1] c_stress[2] c_stress[3]
+compute vvol all voronoi/atom
+#--------------------------------------FIXES FOR ATOM BY ATOM DATA---------------------------------
+
+fix  		11 boundary setforce NULL 0.0 NULL 
+
+dump 		data1 all custom 250 dump.${name}.* id type x y z  vy   c_stress[2] 
+#dump		data2 studyup custom 250 dump.${std}.* id type x y z c_stress[1] c_stress[2] c_stress[3]
+#dump		data3 bound custom 250 dump.${bdr}.* id type c_stress[1] c_stress[2] c_stress[3]
+
+fix 	print all print 100 "${tstp} ${le} ${virial}" file virial_stress_data.txt screen yes
+
+#-------------------------------------TIMESTEP DEFINITION AND RUN-----------------------------------
+
+timestep 	0.005
+thermo  	250
+
+thermo_modify 	temp new
+
+neigh_modify 	exclude type 2 3
+
+run  		15000
