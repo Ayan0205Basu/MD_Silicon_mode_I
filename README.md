@@ -11,6 +11,7 @@ This repository contains the simulation models, data, and Python analysis script
 3. **LEFM Validity Analysis:** Comparative analysis tools—including corresponding ABAQUS finite element model data—to validate the applicability of Linear Elastic Fracture Mechanics (LEFM) just before crack propagation. Note that the setup for the FEM simulation is not detailed here. For that, please refer to the following paper: https://doi.org/10.1115/1.4064545.
 4. **Boundary Proximity Effects:** Codes to conduct a systematic parameter study evaluating how crack depth relative to the loading boundary influences the critical boundary stress and the evaluated $K_{IC}$.
 5. **SIF Calculation Scripts (`SIF_calculation_ipynb_scripts/`):** A dedicated directory containing Jupyter Notebooks and corresponding dataset files used to perform regression analysis and extract the critical stress intensity factor using atomistic stress data ahead of the crack tip.
+6. **Data Visualization (`Visualization_scripts/`):** A suite of Jupyter Notebooks dedicated to generating publication-quality comparative plots of the stress fields, mesh convergence, and the relationship between $K_{IC}$ and boundary stress.
 
 ---
 
