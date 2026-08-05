@@ -21,7 +21,7 @@ Each Jupyter Notebook follows a standardized analytical workflow to process the 
    
    $$\sigma_{yy} = \frac{K_I}{\sqrt{2 \pi r}}$$
 
-   *(where $$\sigma_{yy}$$ is the normal stress ahead of the crack tip, $$K_I$$ is the mode-I stress intensity factor, and $$r$$ is the distance from the crack tip).*
+(where $$\sigma_{yy}$$ is the normal stress ahead of the crack tip, $$K_I$$ is the mode-I stress intensity factor, and $$r$$ is the distance from the crack tip).
 
-4. **Linear Fitting:** The regression fit to extract $K_I$ is specifically performed using the data from the **2nd to the 11th atom** ahead of the crack tip, ensuring the calculation falls within the valid $K$-dominant zone.
-5. **Goodness of Fit:** Evaluates and plots the $R^2$ (goodness of fit) for the regression to validate the LEFM assumption at the specified atomic distances.
+5. **Linear Fitting:** The regression fit to extract $K_I$ is specifically performed using the data from the **2nd to the 11th atom** ahead of the crack tip, ensuring the calculation falls within the valid $K$-dominant zone.
+6. **Goodness of Fit:** Evaluates and plots the $R^2$ (goodness of fit) for the regression to validate the LEFM assumption at the specified atomic distances.
