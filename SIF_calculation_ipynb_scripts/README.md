@@ -19,7 +19,7 @@ Each Jupyter Notebook follows a standardized analytical workflow to process the 
 2. **Stress Normalization:** Normalizes the stress distribution ahead of the crack tip for comparative analysis across different loading boundaries and geometries.
 3. **LEFM Regression Analysis:** Computes the SIF by mapping the atomistic stress data to the theoretical Linear Elastic Fracture Mechanics (LEFM) stress field relation for a mode-I crack:
    
-   $$ \sigma_{yy} = \frac{K_I}{\sqrt{2 \pi r}} $$
+   $$\sigma_{yy} = \frac{K_I}{\sqrt{2 \pi r}}$$
 
    *(where $\sigma_{yy}$ is the normal stress ahead of the crack tip, $K_I$ is the mode-I stress intensity factor, and $r$ is the distance from the crack tip).*
 
